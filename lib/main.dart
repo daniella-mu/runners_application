@@ -1,13 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:runners_application/views/profile/profile_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'views/home/home_screen.dart';
+import 'views/auth/login_screen.dart';
+import 'views/auth/register_screen.dart';
+import 'views/auth/forgot_password_screen.dart';
+import 'views/run/routes_explorer_screen.dart'; 
+import 'views/home/route_detail_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Supabase
   await Supabase.initialize(
-    url: 'https://vdehpugshsdjkuxrlnjx.supabase.co', //  your Project URL
-    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZkZWhwdWdzaHNkamt1eHJsbmp4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgyMjYyMTksImV4cCI6MjA3MzgwMjIxOX0.0aYWRCR5l-uqciQXJ_DIt5xslXZjxq8VVqfCZuPYlrA', // paste your anon key here
+    url: 'https://vdehpugshsdjkuxrlnjx.supabase.co',
+    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZkZWhwdWdzaHNkamt1eHJsbmp4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgyMjYyMTksImV4cCI6MjA3MzgwMjIxOX0.0aYWRCR5l-uqciQXJ_DIt5xslXZjxq8VVqfCZuPYlrA',
   );
 
   runApp(const MyApp());
@@ -19,59 +25,35 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Supabase Flutter Demo',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-      ),
-      home: const MyHomePage(title: 'Flutter + Supabase'),
+      title: 'Runners App',
+      debugShowCheckedModeBanner: false,
+      initialRoute: '/', //start with wrapper
+      routes: {
+        '/': (context) => const AuthWrapper(),
+        '/login': (context) => const LoginScreen(),
+        '/register': (context) => const RegisterScreen(),
+        '/forgot-password': (context) => const ForgotPasswordScreen(),
+        '/home': (context) => const HomeScreen(),
+        '/routes-explorer': (context) => const RoutesExplorerScreen(), 
+        '/route-details': (context) => const RouteDetailsScreen(),
+        '/profile':(context) => const ProfileScreen()
+      },
     );
   }
 }
-
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  final String title;
-
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
-}
-
-class _MyHomePageState extends State<MyHomePage> {
-  String _message = 'Connecting to Supabase...';
-
-  @override
-  void initState() {
-    super.initState();
-    _testConnection();
-  }
-
-  // Simple test query to check Supabase connection
-  Future<void> _testConnection() async {
-    try {
-      final response = await Supabase.instance.client
-          .from('users') // 👈 make sure this table exists
-          .select()
-          .limit(1);
-
-      setState(() {
-        _message = 'Supabase Connected 🚀\n$response';
-      });
-    } catch (e) {
-      setState(() {
-        _message = 'Connection failed: $e';
-      });
-    }
-  }
+class AuthWrapper extends StatelessWidget {
+  const AuthWrapper({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: Text(widget.title),
-      ),
-      body: Center(child: Text(_message)),
-    );
+    final session = Supabase.instance.client.auth.currentSession;
+
+    if (session != null) {
+      // User is logged in
+      return const HomeScreen();
+    } else {
+      // User is NOT logged in
+      return const LoginScreen();
+    }
   }
 }
