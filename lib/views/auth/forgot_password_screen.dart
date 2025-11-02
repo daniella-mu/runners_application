@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '/controllers/auth_controller.dart';
+import '/widgets/custom_textfield.dart';
+import '/widgets/custom_button.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -9,37 +11,52 @@ class ForgotPasswordScreen extends StatefulWidget {
 }
 
 class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
-  final TextEditingController _emailController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
-  final AuthController _authController = AuthController();
+  final _emailController = TextEditingController();
+  final _authController = AuthController();
 
-  String? _errorMessage;   // inline error
-  String? _successMessage; // inline success
+  bool _loading = false;
+  String? _errorMessage;
+  String? _successMessage;
+
+  String? _validateEmail(String? v) {
+    final value = v?.trim() ?? '';
+    if (value.isEmpty) return 'Email is required';
+    final re = RegExp(r'^[\w\.\-]+@([\w\-]+\.)+[\w\-]{2,}$');
+    if (!re.hasMatch(value)) return 'Enter a valid email';
+    return null;
+  }
 
   Future<void> _resetPassword() async {
-    setState(() {
-      _errorMessage = null;
-      _successMessage = null;
-    });
+    FocusScope.of(context).unfocus();
+    setState(() { _errorMessage = null; _successMessage = null; });
 
-    if (_formKey.currentState?.validate() != true) return;
+    if (!_formKey.currentState!.validate()) return;
 
-    final result = await _authController.forgotPassword(_emailController.text.trim());
+    setState(() => _loading = true);
+    try {
+      final ok = await _authController.forgotPassword(_emailController.text.trim());
+      if (!mounted) return;
 
-    if (result == true) {
-      setState(() {
-        _successMessage = " Password reset email sent! Check your inbox.";
-      });
-
-      // Optionally go back to login after a short delay
-      Future.delayed(const Duration(seconds: 2), () {
+      if (ok == true) {
+        setState(() => _successMessage = 'Password reset email sent! Check your inbox.');
+        await Future.delayed(const Duration(seconds: 2));
         if (mounted) Navigator.pushReplacementNamed(context, '/login');
-      });
-    } else {
-      setState(() {
-        _errorMessage = result; // Supabase error message
-      });
+      } else {
+        setState(() => _errorMessage = (ok is String && ok.isNotEmpty) ? ok : 'Could not send reset email');
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _errorMessage = 'Unexpected error: $e');
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    super.dispose();
   }
 
   @override
@@ -47,102 +64,97 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     return Scaffold(
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
-        title: const Text("Forgot Password"),
+        title: const Text('Forgot Password'),
         centerTitle: true,
         backgroundColor: Colors.purple,
         elevation: 0,
       ),
       body: Center(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 40),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.lock_reset_rounded, size: 80, color: Colors.purple),
-              const SizedBox(height: 20),
-              const Text(
-                "Forgot Your Password?",
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // Top icon + titles
+                Icon(Icons.lock_reset_rounded, size: 72, color: Colors.purple[400]),
+                const SizedBox(height: 16),
+                const Text(
+                  'Forgot Your Password?',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+                  textAlign: TextAlign.center,
                 ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 10),
-              const Text(
-                "Enter your email and we will send you a reset link.",
-                style: TextStyle(fontSize: 16, color: Colors.black54),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 30),
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black12,
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
+                const SizedBox(height: 6),
+                const Text(
+                  'Enter your email and we will send you a reset link.',
+                  style: TextStyle(fontSize: 15, color: Colors.black54),
+                  textAlign: TextAlign.center,
                 ),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    children: [
-                      TextFormField(
-                        controller: _emailController,
-                        keyboardType: TextInputType.emailAddress,
-                        decoration: InputDecoration(
-                          labelText: "Email",
-                          prefixIcon: const Icon(Icons.email_outlined),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          filled: true,
-                          fillColor: Colors.grey[50],
-                        ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) return "Email is required";
-                          if (!value.contains("@")) return "Enter a valid email";
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 10),
-                      if (_errorMessage != null)
-                        Text(_errorMessage!, style: const TextStyle(color: Colors.red, fontSize: 14)),
-                      if (_successMessage != null)
-                        Text(_successMessage!, style: const TextStyle(color: Colors.green, fontSize: 14)),
-                      const SizedBox(height: 20),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: _resetPassword,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.purple,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 20),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                const SizedBox(height: 24),
+
+                // The white card with shadow
+                Card(
+                  elevation: 8,
+                  shadowColor: Colors.black12,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+                    child: Form(
+                      key: _formKey,
+                      autovalidateMode: AutovalidateMode.onUserInteraction,
+                      child: Column(
+                        children: [
+                          // Input inside card with inner outline
+                          Theme(
+                            data: Theme.of(context).copyWith(
+                              inputDecorationTheme: InputDecorationTheme(
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                  borderSide: const BorderSide(color: Color(0xFFDDDDDD)),
+                                ),
+                              ),
                             ),
-                            elevation: 3,
+                            child: CustomTextField(
+                              controller: _emailController,
+                              hint: 'Email',
+                              keyboardType: TextInputType.emailAddress,
+                              prefixIcon: const Icon(Icons.email_outlined),
+                              validator: _validateEmail,
+                              onSubmitted: (_) => _loading ? null : _resetPassword(),
+                            ),
                           ),
-                          child: const Text("Send Reset Link", style: TextStyle(fontSize: 16)),
-                        ),
+                          const SizedBox(height: 16),
+
+                          if (_errorMessage != null)
+                            Text(_errorMessage!, style: const TextStyle(color: Colors.red)),
+                          if (_successMessage != null)
+                            Text(_successMessage!, style: const TextStyle(color: Colors.green)),
+                          if (_errorMessage != null || _successMessage != null)
+                            const SizedBox(height: 8),
+
+                          SizedBox(
+                            width: double.infinity,
+                            child: CustomButton(
+                              label: _loading ? 'Sending…' : 'Send Reset Link',
+                              onPressed: _loading ? null : _resetPassword,
+                              color: Colors.purple,
+                              loading: _loading,
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 20),
-              TextButton(
-                onPressed: () => Navigator.pushReplacementNamed(context, '/login'),
-                child: const Text("Back to Login", style: TextStyle(color: Colors.purple)),
-              ),
-            ],
+
+                const SizedBox(height: 16),
+                TextButton(
+                  onPressed: _loading ? null : () => Navigator.pushReplacementNamed(context, '/login'),
+                  child: const Text('Back to Login', style: TextStyle(color: Colors.purple)),
+                ),
+              ],
+            ),
           ),
         ),
       ),

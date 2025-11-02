@@ -7,7 +7,7 @@ import 'views/auth/login_screen.dart';
 import 'views/auth/register_screen.dart';
 import 'views/auth/forgot_password_screen.dart';
 import 'views/run/routes_explorer_screen.dart'; 
-import 'views/home/route_detail_screen.dart';
+// import 'views/home/route_detail_screen.dart';
 
 void main() async {
    // Make sure Flutter is ready
@@ -42,7 +42,7 @@ class MyApp extends StatelessWidget {
         '/forgot-password': (context) => const ForgotPasswordScreen(),
         '/home': (context) => const HomeScreen(),
         '/routes-explorer': (context) => const RoutesExplorerScreen(), 
-        '/route-details': (context) => const RouteDetailsScreen(),
+        // '/route-details': (context) => const RouteDetailScreen(),
         '/profile':(context) => const ProfileScreen()
       },
     );

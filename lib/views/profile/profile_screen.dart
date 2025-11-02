@@ -1,7 +1,10 @@
+// lib/views/profile/profile_screen.dart
 import 'dart:io';
 import 'package:flutter/material.dart';
-import '/controllers/profile_controller.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '/controllers/profile_controller.dart';
+import '/widgets/custom_textfield.dart';
+import '/widgets/custom_button.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -33,7 +36,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _loadUserProfile();
   }
 
-  /// Load user profile from Supabase
   Future<void> _loadUserProfile() async {
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) return;
@@ -41,35 +43,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final profile = await _controller.fetchUserProfile(user.id);
     if (profile != null) {
       setState(() {
-        _nameController.text = profile.fullName ?? '';
-        _dobController.text = profile.dob ?? '';
-        _genderController.text = profile.gender ?? '';
-        _locationController.text = profile.location ?? '';
-        _experienceController.text = profile.experience ?? '';
-        _preferredTimeController.text = profile.preferredTime ?? '';
+        _nameController.text             = profile.fullName ?? '';
+        _dobController.text              = profile.dob ?? '';
+        _genderController.text           = profile.gender ?? '';
+        _locationController.text         = profile.location ?? '';
+        _experienceController.text       = profile.experience ?? '';
+        _preferredTimeController.text    = profile.preferredTime ?? '';
         _emergencyContactController.text = profile.emergencyContact ?? '';
-        _profileImageUrl = profile.profilePictureUrl;
-
-         // This line sets the profile image URL from the model
-        _profileImageUrl = profile.profilePictureUrl; 
-
-
+        _profileImageUrl                 = profile.profilePictureUrl;
       });
     }
   }
 
-  /// Pick profile image from gallery
   Future<void> _pickImage() async {
     final picked = await _controller.pickProfileImage();
     if (picked != null) setState(() => _profileImage = picked);
   }
 
-  /// Save profile to Supabase
   Future<void> _saveProfile() async {
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) return;
 
-    // Validate full name
     final validationMessage = _controller.validateProfile(fullName: _nameController.text);
     if (validationMessage != null) {
       setState(() {
@@ -79,15 +73,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return;
     }
 
-    // Upload image if changed
     String? uploadedUrl = _profileImageUrl;
     if (_profileImage != null) {
       final url = await _controller.uploadProfileImage(_profileImage!, user.id);
-      debugPrint('Uploaded image URL: $url');
       if (url != null) uploadedUrl = url;
     }
 
-    // Upsert profile in Supabase
     final success = await _controller.updateProfile(
       uid: user.id,
       fullName: _nameController.text.trim(),
@@ -100,11 +91,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       profileImageUrl: uploadedUrl,
     );
 
-    debugPrint('Profile update success: $success, URL saved: $uploadedUrl');
-
     if (success) {
       _profileImageUrl = uploadedUrl;
-      await _loadUserProfile(); // Reload profile from Supabase
+      await _loadUserProfile();
     }
 
     setState(() {
@@ -113,41 +102,62 @@ class _ProfileScreenState extends State<ProfileScreen> {
     });
   }
 
-  /// Helper for text fields
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String label,
-    bool readOnly = false,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        TextField(
-          controller: controller,
-          readOnly: readOnly,
-          decoration: InputDecoration(
-            labelText: label,
-            border: const OutlineInputBorder(),
-          ),
-        ),
-        const SizedBox(height: 12),
-      ],
+  // Opens a date picker and writes yyyy-MM-dd into _dobController
+  Future<void> _pickDob() async {
+    // Try to parse current value to use as initial date
+    DateTime? initial;
+    if (_dobController.text.trim().isNotEmpty) {
+      try {
+        initial = DateTime.parse(_dobController.text.trim());
+      } catch (_) {}
+    }
+    initial ??= DateTime(2000, 1, 1);
+
+    final now = DateTime.now();
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(1900, 1, 1),
+      lastDate: now,
+      helpText: 'Select Date of Birth',
     );
+
+    if (picked != null) {
+      final y = picked.year.toString().padLeft(4, '0');
+      final m = picked.month.toString().padLeft(2, '0');
+      final d = picked.day.toString().padLeft(2, '0');
+      _dobController.text = '$y-$m-$d';
+      setState(() {});
+    }
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _dobController.dispose();
+    _genderController.dispose();
+    _locationController.dispose();
+    _experienceController.dispose();
+    _preferredTimeController.dispose();
+    _emergencyContactController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final purple = const Color(0xFF9C27B0);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text("Profile"),
-        backgroundColor: Colors.purple,
+        backgroundColor: purple,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // Profile Image
+            // Profile image
             GestureDetector(
               onTap: _pickImage,
               child: CircleAvatar(
@@ -157,7 +167,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     : (_profileImageUrl != null
                         ? NetworkImage(_profileImageUrl!) as ImageProvider
                         : null),
-                backgroundColor: Colors.purple.withAlpha(153),
+                backgroundColor: purple.withAlpha(153),
                 child: _profileImage == null && _profileImageUrl == null
                     ? const Icon(Icons.person, size: 50, color: Colors.white)
                     : null,
@@ -165,41 +175,65 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Status message
             if (_statusMessage.isNotEmpty)
               Text(
                 _statusMessage,
-                style: TextStyle(
-                  color: _statusColor,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(color: _statusColor, fontWeight: FontWeight.bold),
               ),
+            const SizedBox(height: 16),
+
+            // Fields with labels (no icons)
+            CustomTextField(
+              controller: _nameController,
+              label: "Full Name",
+            ),
             const SizedBox(height: 12),
 
-            // Profile fields
-            _buildTextField(controller: _nameController, label: "Full Name"),
-            _buildTextField(controller: _dobController, label: "Date of Birth"),
-            _buildTextField(controller: _genderController, label: "Gender"),
-            _buildTextField(controller: _locationController, label: "Neighborhood (Nairobi)"),
-            _buildTextField(controller: _experienceController, label: "Running Experience"),
-            _buildTextField(controller: _preferredTimeController, label: "Preferred Running Time"),
-            _buildTextField(controller: _emergencyContactController, label: "Emergency Contact"),
+            CustomTextField(
+              controller: _dobController,
+              label: "Date of Birth",
+              readOnly: true,
+              onTap: _pickDob,
+            ),
+            const SizedBox(height: 12),
+
+            CustomTextField(
+              controller: _genderController,
+              label: "Gender",
+            ),
+            const SizedBox(height: 12),
+
+            CustomTextField(
+              controller: _locationController,
+              label: "Neighborhood (Nairobi)",
+            ),
+            const SizedBox(height: 12),
+
+            CustomTextField(
+              controller: _experienceController,
+              label: "Running Experience",
+            ),
+            const SizedBox(height: 12),
+
+            CustomTextField(
+              controller: _preferredTimeController,
+              label: "Preferred Running Time",
+            ),
+            const SizedBox(height: 12),
+
+            CustomTextField(
+              controller: _emergencyContactController,
+              label: "Emergency Contact",
+              keyboardType: TextInputType.phone,
+            ),
             const SizedBox(height: 20),
 
-            // Save Button
             SizedBox(
               width: double.infinity,
-              child: ElevatedButton(
+              child: CustomButton(
+                label: "Save Profile",
+                color: purple,
                 onPressed: _saveProfile,
-                style: ElevatedButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  backgroundColor: const Color.fromARGB(255, 156, 39, 176),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(30),
-                  ),
-                ),
-                child: const Text("Save Profile", style: TextStyle(fontSize: 16)),
               ),
             ),
           ],
