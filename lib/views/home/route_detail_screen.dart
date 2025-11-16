@@ -1,15 +1,22 @@
+// lib/views/home/route_detail_screen.dart
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '/models/route_model.dart';
 import '/models/route_photo_model.dart';
+import '/models/route_feedback_model.dart';
+
 import '/controllers/route_photos_controller.dart';
+import '/controllers/route_feedback_controller.dart';
+
+import '../feedback/community_feedback_screen.dart';
+import 'widgets/route_header.dart';
+import 'widgets/route_photos_section.dart';
+import 'widgets/start_run_button.dart';
 
 class RouteDetailScreen extends StatefulWidget {
   final RouteModel route;
-
-  const RouteDetailScreen({
-    super.key,
-    required this.route,
-  });
+  const RouteDetailScreen({super.key, required this.route});
 
   @override
   State<RouteDetailScreen> createState() => _RouteDetailScreenState();
@@ -17,274 +24,345 @@ class RouteDetailScreen extends StatefulWidget {
 
 class _RouteDetailScreenState extends State<RouteDetailScreen> {
   final _photosCtrl = RoutePhotosController();
+  final _feedbackCtrl = RouteFeedbackController();
+
   late Future<List<RoutePhoto>> _photosFuture;
+  late Future<List<RouteFeedback>> _feedbackFuture;
+
   bool _uploading = false;
+
+  String? _statusMessage;
+  Color _statusColor = Colors.green;
+
+  // 👇 NEW: dynamic average rating from feedback
+  double? _avgRating; // null = no feedback yet
 
   @override
   void initState() {
     super.initState();
-    _photosFuture = _photosCtrl.list(widget.route.routeId);
+    final routeId = widget.route.routeId;
+    _photosFuture = _photosCtrl.list(routeId);
+    _feedbackFuture = _feedbackCtrl.fetchForRoute(routeId);
+    _loadAverageRating(); //  also load average rating from feedback
   }
 
-  Future<void> _refreshPhotos() async {
-    final items = await _photosCtrl.list(widget.route.routeId);
-    if (!mounted) return;
-    setState(() => _photosFuture = Future.value(items));
+  // 🔹 Load avg rating from route_feedback (using your controller’s method)
+  Future<void> _loadAverageRating() async {
+    try {
+      final avg = await _feedbackCtrl.averageForRoute(widget.route.routeId);
+      if (!mounted) return;
+      setState(() {
+        _avgRating = avg; // can be null if no feedback rows
+      });
+    } catch (_) {
+      if (!mounted) return;
+      // If it fails, we just keep _avgRating as null and fall back to route.averageRating
+    }
+  }
+
+  void _showStatus(String msg, Color color) {
+    setState(() {
+      _statusMessage = msg;
+      _statusColor = color;
+    });
+
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted) {
+        setState(() => _statusMessage = null);
+      }
+    });
+  }
+
+  Future<void> _refreshAll() async {
+    final routeId = widget.route.routeId;
+    setState(() {
+      _photosFuture = _photosCtrl.list(routeId);
+      _feedbackFuture = _feedbackCtrl.fetchForRoute(routeId);
+      _statusMessage = null;
+    });
+
+    // refresh average rating too
+    await _loadAverageRating();
   }
 
   Future<void> _addPhoto() async {
     if (_uploading) return;
-    setState(() => _uploading = true);
 
-    final messenger = ScaffoldMessenger.of(context); // fixes async context warning
+    setState(() {
+      _uploading = true;
+      _statusMessage = null;
+    });
 
     try {
       final ok = await _photosCtrl.pickAndUpload(routeId: widget.route.routeId);
       if (!mounted) return;
 
       if (ok) {
-        await _refreshPhotos();
-        messenger.showSnackBar(const SnackBar(content: Text('Photo uploaded')));
+        setState(() {
+          _photosFuture = _photosCtrl.list(widget.route.routeId);
+        });
+        _showStatus('Photo uploaded successfully!', Colors.green);
       } else {
-        messenger.showSnackBar(const SnackBar(content: Text('Upload cancelled or failed')));
+        _showStatus('Upload cancelled or failed.', Colors.red);
       }
     } catch (e) {
       if (!mounted) return;
-      messenger.showSnackBar(SnackBar(content: Text('Unexpected error: $e')));
+      _showStatus('Unexpected error: $e', Colors.red);
     } finally {
-      if (mounted) setState(() => _uploading = false);
+      if (mounted) {
+        setState(() => _uploading = false);
+      }
     }
+  }
+
+  Future<void> _confirmDelete(RoutePhoto photo) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete photo?'),
+        content: const Text('This action cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    final msg = await _photosCtrl.deletePhoto(photo);
+    if (!mounted) return;
+
+    if (msg == null) {
+      setState(() {
+        _photosFuture = _photosCtrl.list(widget.route.routeId);
+      });
+      _showStatus('Photo deleted.', Colors.green);
+    } else {
+      _showStatus(msg, Colors.red);
+    }
+  }
+
+  void _openPhotoViewer(String url) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.9),
+      builder: (ctx) => GestureDetector(
+        onTap: () => Navigator.pop(ctx),
+        child: Stack(
+          children: [
+            Center(
+              child: InteractiveViewer(
+                child: Image.network(
+                  url,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) =>
+                      const Icon(Icons.broken_image, color: Colors.white),
+                ),
+              ),
+            ),
+            const Positioned(
+              top: 16,
+              right: 16,
+              child: CloseButton(color: Colors.white),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _openAllFeedback() {
+    Navigator.of(context)
+        .push(
+          MaterialPageRoute(
+            builder: (_) => CommunityFeedbackScreen(route: widget.route),
+          ),
+        )
+        .then((_) {
+          // when returning, refresh feedback + average rating
+          setState(() {
+            _feedbackFuture = _feedbackCtrl.fetchForRoute(widget.route.routeId);
+          });
+          _loadAverageRating();
+        });
   }
 
   @override
   Widget build(BuildContext context) {
     final purple = const Color(0xFF9C27B0);
     final r = widget.route;
+    final currentUserId = Supabase.instance.client.auth.currentUser?.id;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(r.name),
-        backgroundColor: purple,
-      ),
+      appBar: AppBar(title: Text(r.name), backgroundColor: purple),
       body: RefreshIndicator(
-        onRefresh: _refreshPhotos,
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
+        onRefresh: _refreshAll,
+        child: ListView(
           padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Title + stars
+          children: [
+            // 1) Header (now using dynamic avg if available)
+            RouteHeader(
+              route: r,
+              overrideAverageRating:
+                  _avgRating, // 👈 this comes from feedback table
+            ),
+
+            const SizedBox(height: 24),
+
+            // 2) Photos section
+            RoutePhotosSection(
+              photosFuture: _photosFuture,
+              photosCtrl: _photosCtrl,
+              uploading: _uploading,
+              currentUserId: currentUserId,
+              onAddPhoto: _addPhoto,
+              onViewPhoto: _openPhotoViewer,
+              onDeletePhoto: _confirmDelete,
+            ),
+
+            if (_statusMessage != null) ...[
+              const SizedBox(height: 8),
               Text(
-                r.name,
-                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black87),
-              ),
-              const SizedBox(height: 6),
-              _RatingStars(rating: r.averageRating),
-
-              const SizedBox(height: 16),
-
-              // Stats
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  _StatChip(icon: Icons.route, label: '${(r.distanceM / 1000).toStringAsFixed(1)} km', color: Colors.teal),
-                  _StatChip(icon: Icons.star_rate_rounded, label: r.averageRating.toStringAsFixed(1), color: Colors.orange),
-                  _StatChip(icon: Icons.trending_up, label: '${r.popularity}%', color: purple),
-                ],
-              ),
-
-              const SizedBox(height: 20),
-
-              // Description (optional)
-              if (r.description.trim().isNotEmpty) ...[
-                Text(r.description, style: const TextStyle(fontSize: 16, color: Colors.black54)),
-                const SizedBox(height: 20),
-              ],
-
-              // Photos
-              const Text('Photos from Runners', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-              const SizedBox(height: 10),
-              FutureBuilder<List<RoutePhoto>>(
-                future: _photosFuture,
-                builder: (context, snap) {
-                  final items = snap.data ?? const <RoutePhoto>[];
-
-                  if (snap.connectionState == ConnectionState.waiting && items.isEmpty) {
-                    return const SizedBox(height: 86, child: Center(child: CircularProgressIndicator()));
-                  }
-
-                  // Always show "+" first. Then any photos.
-                  final count = 1 + items.length;
-
-                  return SizedBox(
-                    height: 86,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: count,
-                      separatorBuilder: (_, __) => const SizedBox(width: 10),
-                      itemBuilder: (context, i) {
-                        if (i == 0) {
-                          return _AddPhotoTile(onTap: _uploading ? null : _addPhoto);
-                        }
-
-                        final photo = items[i - 1];
-
-                        // ✅ Use DB 'url' if present; else build from storagePath
-                        final displayUrl =
-                            photo.url ?? _photosCtrl.getPublicUrl(photo.storagePath);
-
-                        return _PhotoThumb.network(displayUrl);
-                      },
-                    ),
-                  );
-                },
-              ),
-
-              const SizedBox(height: 24),
-
-              // Comments (placeholder)
-              const Text('User Comments', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-              const SizedBox(height: 10),
-              Card(
-                elevation: 2,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                child: const Padding(
-                  padding: EdgeInsets.all(12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('“Great route with lots of shade and water fountains.” – Alex'),
-                      SizedBox(height: 8),
-                      Text('“Beautiful views; watch the hill midway!” – Priya'),
-                      SizedBox(height: 8),
-                      Text('“Crowded on weekends but fun.” – Sam'),
-                    ],
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 24),
-
-              // Start Run Button
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    debugPrint('Start run on ${r.name}');
-                  },
-                  icon: const Icon(Icons.directions_run),
-                  label: const Text('Start Run', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: purple,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                  ),
+                _statusMessage!,
+                style: TextStyle(
+                  color: _statusColor,
+                  fontWeight: FontWeight.w500,
+                  fontSize: 13,
                 ),
               ),
             ],
-          ),
+
+            const SizedBox(height: 28),
+
+            // 3) Latest community comments (REAL data)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Latest Community Comments',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                ),
+                TextButton(
+                  onPressed: _openAllFeedback,
+                  child: const Text('View all'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+
+            FutureBuilder<List<RouteFeedback>>(
+              future: _feedbackFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 12),
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
+
+                if (snapshot.hasError) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8),
+                    child: Text(
+                      'Failed to load comments.',
+                      style: TextStyle(color: Colors.red),
+                    ),
+                  );
+                }
+
+                final list = snapshot.data ?? [];
+                if (list.isEmpty) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 4),
+                    child: Text(
+                      'No comments yet. Check what others say after they start using this route.',
+                      style: TextStyle(fontSize: 14, color: Colors.black54),
+                    ),
+                  );
+                }
+
+                // show at most 2 comments here
+                final latest = list.length <= 2 ? list : list.take(2).toList();
+
+                return Column(
+                  children: latest.map((f) {
+                    return Card(
+                      elevation: 2,
+                      margin: const EdgeInsets.symmetric(vertical: 4),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(10),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: purple.withValues(alpha: 0.08),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    '${f.rating} ★',
+                                    style: TextStyle(
+                                      color: purple,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  _formatDateTime(f.createdAt),
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.black54,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              f.comment,
+                              style: const TextStyle(fontSize: 14),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                );
+              },
+            ),
+
+            const SizedBox(height: 32),
+
+            // 4) Start Run button
+            StartRunButton(route: r, color: purple),
+          ],
         ),
       ),
     );
   }
-}
 
-/// ====== Reusable bits ======
-
-class _RatingStars extends StatelessWidget {
-  final double rating;
-  const _RatingStars({required this.rating});
-
-  @override
-  Widget build(BuildContext context) {
-    final full = rating.floor();
-    final hasHalf = (rating - full) >= 0.5;
-    return Row(
-      children: List.generate(5, (i) {
-        if (i < full) return const Icon(Icons.star, color: Colors.amber, size: 18);
-        if (i == full && hasHalf) return const Icon(Icons.star_half, color: Colors.amber, size: 18);
-        return const Icon(Icons.star_border, color: Colors.amber, size: 18);
-      }),
-    );
+  String _formatDateTime(DateTime dt) {
+    final d =
+        '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
+    final t =
+        '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+    return '$d $t';
   }
-}
-
-class _StatChip extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color color;
-  const _StatChip({required this.icon, required this.label, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Chip(
-      avatar: Icon(icon, color: Colors.white, size: 18),
-      label: Text(label),
-      labelStyle: const TextStyle(color: Colors.white),
-      backgroundColor: color,
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-    );
-  }
-}
-
-class _AddPhotoTile extends StatelessWidget {
-  final VoidCallback? onTap;
-  const _AddPhotoTile({this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        width: 86,
-        height: 86,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.purple, width: 1.2),
-        ),
-        child: const Center(child: Icon(Icons.add, color: Colors.purple, size: 28)),
-      ),
-    );
-  }
-}
-
-class _PhotoThumb extends StatelessWidget {
-  final Widget child;
-  const _PhotoThumb._(this.child);
-
-  factory _PhotoThumb.network(String url) {
-    return _PhotoThumb._(
-      ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: Image.network(
-          url,
-          width: 86,
-          height: 86,
-          fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) =>
-              _gradientBox(const [Color(0xFFD1C4E9), Color(0xFFB39DDB)]),
-        ),
-      ),
-    );
-  }
-
-  static Widget _gradientBox(List<Color> colors) {
-    return Container(
-      width: 86,
-      height: 86,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        gradient: LinearGradient(colors: colors, begin: Alignment.topLeft, end: Alignment.bottomRight),
-        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 3))],
-      ),
-      child: const Icon(Icons.image, color: Colors.white, size: 28),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) => child;
 }

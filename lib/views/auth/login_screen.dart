@@ -91,13 +91,21 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.directions_run, color: Colors.purple, size: 48),
+                  const Icon(
+                    Icons.directions_run,
+                    color: Colors.purple,
+                    size: 48,
+                  ),
                   const SizedBox(height: 8),
-                  const Text('Runner',
-                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                  const Text(
+                    'Runner',
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                  ),
                   const SizedBox(height: 16),
-                  const Text('Welcome Back!',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500)),
+                  const Text(
+                    'Welcome Back!',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+                  ),
                   const SizedBox(height: 24),
 
                   // --- Form ---
@@ -113,7 +121,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           keyboardType: TextInputType.emailAddress,
                           validator: _validateEmail,
                         ),
-                        const SizedBox(height: 22),
+                        const SizedBox(height: 20),
 
                         CustomTextField(
                           controller: _passwordController,
@@ -123,9 +131,15 @@ class _LoginScreenState extends State<LoginScreen> {
                           obscure: _obscure,
                           suffixIcon: IconButton(
                             icon: Icon(
-                                _obscure ? Icons.visibility_off : Icons.visibility),
-                            onPressed: () => setState(() => _obscure = !_obscure),
-                            tooltip: _obscure ? 'Show password' : 'Hide password',
+                              _obscure
+                                  ? Icons.visibility_off
+                                  : Icons.visibility,
+                            ),
+                            onPressed: () =>
+                                setState(() => _obscure = !_obscure),
+                            tooltip: _obscure
+                                ? 'Show password'
+                                : 'Hide password',
                             splashRadius: 20,
                           ),
                           onSubmitted: (_) => _loading ? null : _login(),
@@ -149,7 +163,9 @@ class _LoginScreenState extends State<LoginScreen> {
                             padding: const EdgeInsets.only(top: 12.0),
                             child: Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 12),
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
                               decoration: BoxDecoration(
                                 color: Colors.red.shade50,
                                 borderRadius: BorderRadius.circular(10),
@@ -157,8 +173,10 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                               child: Row(
                                 children: [
-                                  const Icon(Icons.error_outline,
-                                      color: Colors.redAccent),
+                                  const Icon(
+                                    Icons.error_outline,
+                                    color: Colors.redAccent,
+                                  ),
                                   const SizedBox(width: 10),
                                   Expanded(
                                     child: Text(
@@ -182,17 +200,20 @@ class _LoginScreenState extends State<LoginScreen> {
                           child: OutlinedButton(
                             style: OutlinedButton.styleFrom(
                               foregroundColor: Colors.black,
-                              padding:
-                                  const EdgeInsets.symmetric(vertical: 16),
+                              padding: const EdgeInsets.symmetric(vertical: 16),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(30),
                               ),
                               side: const BorderSide(
-                                  color: Colors.purple, width: 1.5),
+                                color: Colors.purple,
+                                width: 1.5,
+                              ),
                             ),
                             onPressed: _loading ? null : _goToRegister,
-                            child: const Text('Register',
-                                style: TextStyle(fontSize: 16)),
+                            child: const Text(
+                              'Register',
+                              style: TextStyle(fontSize: 16),
+                            ),
                           ),
                         ),
                       ],

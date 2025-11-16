@@ -48,7 +48,7 @@ class _HomeScreenState extends State<HomeScreen> {
           gradient: LinearGradient(
             colors: [
               Color.fromARGB(255, 210, 189, 214),
-              Color.fromARGB(255, 248, 245, 246)
+              Color.fromARGB(255, 248, 245, 246),
             ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
@@ -71,8 +71,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       snapshot.data ?? _homeController.getCurrentUserModel();
 
                   // Prefer full name, fallback to "Runner"
-                  final name = (user?.fullName != null &&
-                          user!.fullName!.isNotEmpty)
+                  final name =
+                      (user?.fullName != null && user!.fullName!.isNotEmpty)
                       ? user.fullName!
                       : 'Runner';
 
@@ -98,13 +98,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: [
                     _buildActionCard(
                       context,
-                      icon: Icons.directions_run,
-                      label: "Start Run",
-                      route: '/start-run',
-                      color: Colors.deepPurple,
-                    ),
-                    _buildActionCard(
-                      context,
                       icon: Icons.map,
                       label: "View Safe Routes",
                       route: '/routes-explorer',
@@ -112,9 +105,16 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     _buildActionCard(
                       context,
+                      icon: Icons.timeline,
+                      label: "Run History",
+                      route: '/run-history',
+                      color: Colors.indigo,
+                    ),
+                    _buildActionCard(
+                      context,
                       icon: Icons.feedback,
                       label: "Community Feedback",
-                      route: '/feedback',
+                      route: '/feedback-routes',
                       color: Colors.orange,
                     ),
                     _buildActionCard(

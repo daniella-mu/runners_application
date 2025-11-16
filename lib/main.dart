@@ -6,17 +6,18 @@ import 'views/home/home_screen.dart';
 import 'views/auth/login_screen.dart';
 import 'views/auth/register_screen.dart';
 import 'views/auth/forgot_password_screen.dart';
-import 'views/run/routes_explorer_screen.dart'; 
+import 'views/run/routes_explorer_screen.dart';
 // import 'views/home/route_detail_screen.dart';
+import 'views/run/run_history_screen.dart';
+import 'views/feedback/feedback_routes_screen.dart';
 
 void main() async {
-   // Make sure Flutter is ready
+  // Make sure Flutter is ready
   WidgetsFlutterBinding.ensureInitialized();
 
   // Load environment variables from .env
   await dotenv.load(fileName: ".env");
-  
-  
+
   // Initialize Supabase
   await Supabase.initialize(
     url: 'https://vdehpugshsdjkuxrlnjx.supabase.co',
@@ -41,13 +42,16 @@ class MyApp extends StatelessWidget {
         '/register': (context) => const RegisterScreen(),
         '/forgot-password': (context) => const ForgotPasswordScreen(),
         '/home': (context) => const HomeScreen(),
-        '/routes-explorer': (context) => const RoutesExplorerScreen(), 
+        '/routes-explorer': (context) => const RoutesExplorerScreen(),
         // '/route-details': (context) => const RouteDetailScreen(),
-        '/profile':(context) => const ProfileScreen()
+        '/profile': (context) => const ProfileScreen(),
+        '/run-history': (context) => const RunHistoryScreen(),
+        '/feedback-routes': (context) => const FeedbackRoutesScreen(),
       },
     );
   }
 }
+
 class AuthWrapper extends StatelessWidget {
   const AuthWrapper({super.key});
 
