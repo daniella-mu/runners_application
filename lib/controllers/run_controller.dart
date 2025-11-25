@@ -101,10 +101,13 @@ class RunController extends ChangeNotifier {
         Geolocator.getPositionStream(
           locationSettings: const LocationSettings(
             accuracy: LocationAccuracy.best,
-            distanceFilter: 5, // get updates roughly every 5m
+            distanceFilter: 1, // more frequent updates (like Strava)
           ),
         ).listen((pos) {
           if (!_running) return;
+
+          // 🔹 Ignore very inaccurate GPS points
+          if (pos.accuracy > 25) return;
 
           if (_lastPosition != null) {
             final delta = Geolocator.distanceBetween(
@@ -114,8 +117,8 @@ class RunController extends ChangeNotifier {
               pos.longitude,
             );
 
-            // Ignore tiny GPS jitter; count meaningful movement (>= 5m)
-            if (delta >= 5) {
+            // 🔹 Ignore tiny jitter (< 3m), count real movement
+            if (delta >= 3) {
               _distanceMeters += delta;
               _positions.add(pos);
               notifyListeners();

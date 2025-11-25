@@ -1,3 +1,4 @@
+// lib/controllers/routes_controller.dart
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '/models/route_model.dart';
@@ -5,6 +6,7 @@ import '/models/route_model.dart';
 class RoutesController {
   final SupabaseClient _client = Supabase.instance.client;
 
+  /// Normal: fetch routes with optional filters
   Future<List<RouteModel>> fetchRoutes({
     double? maxDistance, // meters
     double? minRating,
@@ -43,6 +45,7 @@ class RoutesController {
     }
   }
 
+  /// Normal: search routes by name/description
   Future<List<RouteModel>> searchRoutes(String term) async {
     final t = term.trim();
     if (t.isEmpty) {
@@ -69,6 +72,7 @@ class RoutesController {
     }
   }
 
+  /// Normal: add a new route
   Future<bool> addRoute({
     required String name,
     required String description,
@@ -99,6 +103,62 @@ class RoutesController {
       debugPrint('addRoute error: $e');
       debugPrint('$st');
       return false;
+    }
+  }
+
+  // ===================== 🔹 ADMIN METHODS 🔹 =====================
+
+  /// ADMIN: fetch all routes (no filters)
+  Future<List<RouteModel>> adminFetchAllRoutes({int? limit}) async {
+    try {
+      final resp = await _client
+          .from('routes')
+          .select()
+          .order('name')
+          .limit(limit ?? 200);
+
+      final list = resp as List<dynamic>;
+      debugPrint('adminFetchAllRoutes returned ${list.length} rows');
+
+      return list
+          .map((row) => RouteModel.fromJson(row as Map<String, dynamic>))
+          .toList();
+    } catch (e, st) {
+      debugPrint('adminFetchAllRoutes error: $e');
+      debugPrint('$st');
+      return [];
+    }
+  }
+
+  /// ADMIN: update route name + description by route_id
+  Future<String?> adminUpdateRoute({
+    required int routeId,
+    required String name,
+    required String description,
+  }) async {
+    try {
+      await _client
+          .from('routes')
+          .update({'name': name, 'description': description})
+          .eq('route_id', routeId); // 👈 matches your DB column
+
+      return null;
+    } catch (e, st) {
+      debugPrint('adminUpdateRoute error: $e');
+      debugPrint('$st');
+      return 'Failed to update route.';
+    }
+  }
+
+  /// ADMIN: delete a route by route_id
+  Future<String?> adminDeleteRoute(int routeId) async {
+    try {
+      await _client.from('routes').delete().eq('route_id', routeId); // 👈
+      return null;
+    } catch (e, st) {
+      debugPrint('adminDeleteRoute error: $e');
+      debugPrint('$st');
+      return 'Failed to delete route.';
     }
   }
 }

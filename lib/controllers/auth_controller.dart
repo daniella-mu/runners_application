@@ -4,19 +4,51 @@ import 'package:flutter/foundation.dart';
 class AuthController {
   final SupabaseClient _client = Supabase.instance.client;
 
-  /// Login user with email and password
+  /// --------------------------------------------------------
+  /// LOGIN — includes is_active account check (IMPORTANT)
+  /// --------------------------------------------------------
   Future<dynamic> login(String email, String password) async {
     try {
+      // 1) Attempt login with Supabase
       final res = await _client.auth.signInWithPassword(
         email: email,
         password: password,
       );
 
-      if (res.user != null || res.session != null) {
-        debugPrint(" Login successful. Current user: ${_client.auth.currentUser}");
-        return true;
+      final user = res.user;
+
+      // If no user, invalid email/password
+      if (user == null) {
+        return "Incorrect email or password.";
       }
-      return "Login failed. Please try again.";
+
+      // 2) Fetch user profile to check is_active
+      final profile = await _client
+          .from('profiles')
+          .select('is_active')
+          .eq('id', user.id)
+          .maybeSingle();
+
+      if (profile == null) {
+        debugPrint("❗ Profile row missing for ${user.id}");
+        return "Your account setup is incomplete. Please contact support.";
+      }
+
+      final isActive = (profile['is_active'] as bool?) ?? true;
+
+      // 3) Block login if account is inactive
+      if (!isActive) {
+        debugPrint("❌ Login blocked — inactive account ${user.id}");
+
+        // Must logout because Supabase still signs them in temporarily
+        await _client.auth.signOut();
+
+        return "Your account has been deactivated. Please contact the admin.";
+      }
+
+      // 4) Login is successful
+      debugPrint("✅ Login successful: ${user.id}");
+      return true;
     } on AuthException catch (e) {
       return e.message;
     } catch (e) {
@@ -24,25 +56,27 @@ class AuthController {
     }
   }
 
-  /// Register new user with email, password, and full name
-  Future<dynamic> register(String email, String password, String fullName) async {
+  /// --------------------------------------------------------
+  /// REGISTER
+  /// --------------------------------------------------------
+  Future<dynamic> register(
+    String email,
+    String password,
+    String fullName,
+  ) async {
     try {
-      final res = await _client.auth.signUp(
-        email: email,
-        password: password,
-      );
+      final res = await _client.auth.signUp(email: email, password: password);
 
       final user = res.user;
       if (user != null) {
-        // Insert or update profile row with fallback to email
+        // Insert profile with fallback
         final response = await _client.from('profiles').upsert({
           'id': user.id,
-          'full_name': fullName.isNotEmpty ? fullName : email, //  fallback
-        }). select();
+          'full_name': fullName.isNotEmpty ? fullName : email,
+        }).select();
 
-        debugPrint("Upsert result: $response");
-
-        debugPrint(" Registration successful. User + profile created.");
+        debugPrint("Profile upsert: $response");
+        debugPrint("✅ Registration complete");
         return true;
       }
 
@@ -54,11 +88,13 @@ class AuthController {
     }
   }
 
-  /// Send password reset email
+  /// --------------------------------------------------------
+  /// FORGOT PASSWORD
+  /// --------------------------------------------------------
   Future<dynamic> forgotPassword(String email) async {
     try {
       await _client.auth.resetPasswordForEmail(email);
-      debugPrint(" Password reset email sent to $email");
+      debugPrint("📧 Reset email sent to $email");
       return true;
     } on AuthException catch (e) {
       return e.message;
@@ -67,7 +103,9 @@ class AuthController {
     }
   }
 
-  /// Update current user's password
+  /// --------------------------------------------------------
+  /// UPDATE PASSWORD
+  /// --------------------------------------------------------
   Future<dynamic> updatePassword(String newPassword) async {
     try {
       final res = await _client.auth.updateUser(
@@ -75,7 +113,7 @@ class AuthController {
       );
 
       if (res.user != null) {
-        debugPrint(" Password updated successfully.");
+        debugPrint("🔐 Password updated successfully.");
         return true;
       }
       return "Failed to update password.";
@@ -86,23 +124,22 @@ class AuthController {
     }
   }
 
-  /// Logout user
+  /// --------------------------------------------------------
+  /// LOGOUT
+  /// --------------------------------------------------------
   Future<void> logout() async {
     try {
       await _client.auth.signOut();
-      debugPrint(" User logged out.");
+      debugPrint("🚪 User logged out.");
     } catch (e) {
-      debugPrint("Error during logout: $e");
+      debugPrint("Logout error: $e");
     }
   }
 
-  /// Get current authenticated user
-  User? getCurrentUser() {
-    return _client.auth.currentUser;
-  }
+  /// --------------------------------------------------------
+  /// UTILS — Get current user / session
+  /// --------------------------------------------------------
+  User? getCurrentUser() => _client.auth.currentUser;
 
-  /// Get current active session
-  Session? getCurrentSession() {
-    return _client.auth.currentSession;
-  }
+  Session? getCurrentSession() => _client.auth.currentSession;
 }
