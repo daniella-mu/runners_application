@@ -8,7 +8,7 @@ class RouteFeedback {
   final String comment;
   final DateTime createdAt;
 
-  // 👇 Joins
+  //  Joins
   final String? userName; // from profiles.full_name
   final String? routeName; // from routes.name (for admin)
 

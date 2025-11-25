@@ -11,7 +11,7 @@ class RouteHeader extends StatelessWidget {
   const RouteHeader({
     super.key,
     required this.route,
-    this.overrideAverageRating, // 👈 NEW
+    this.overrideAverageRating, //  NEW
   });
 
   @override

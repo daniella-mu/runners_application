@@ -129,7 +129,7 @@ class IncidentReportController {
     }
   }
 
-  // 🔹🔹 ADMIN METHODS BELOW 🔹🔹
+  //  ADMIN METHODS BELOW
 
   /// ADMIN: fetch all incidents across all routes (no route/user filter).
   Future<List<IncidentReport>> fetchAllIncidents({int? limit}) async {

@@ -34,7 +34,7 @@ class CustomButton extends StatelessWidget {
 
     if (outlined) {
       return SizedBox(
-        width: double.infinity, // 🔥 FULL WIDTH
+        width: double.infinity, //  FULL WIDTH
         child: OutlinedButton(
           onPressed: loading ? null : onPressed,
           style: OutlinedButton.styleFrom(
@@ -51,7 +51,7 @@ class CustomButton extends StatelessWidget {
     }
 
     return SizedBox(
-      width: double.infinity, // 🔥 FULL WIDTH
+      width: double.infinity, //  FULL WIDTH
       child: ElevatedButton(
         onPressed: loading ? null : onPressed,
         style: ElevatedButton.styleFrom(

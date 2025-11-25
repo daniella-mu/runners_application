@@ -101,7 +101,7 @@ class RunController extends ChangeNotifier {
         Geolocator.getPositionStream(
           locationSettings: const LocationSettings(
             accuracy: LocationAccuracy.best,
-            distanceFilter: 1, // more frequent updates (like Strava)
+            distanceFilter: 1, // more frequent updates
           ),
         ).listen((pos) {
           if (!_running) return;

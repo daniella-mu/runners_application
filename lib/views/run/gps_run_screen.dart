@@ -100,11 +100,8 @@ class _GpsRunScreenState extends State<GpsRunScreen> {
 
     navigator.push(
       MaterialPageRoute(
-        builder: (_) => RunSummaryScreen(
-          route: route,
-          run: summary,
-          path: path, // 👈 this powers the Strava-like map
-        ),
+        builder: (_) =>
+            RunSummaryScreen(route: route, run: summary, path: path),
       ),
     );
   }

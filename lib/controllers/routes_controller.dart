@@ -106,7 +106,7 @@ class RoutesController {
     }
   }
 
-  // ===================== 🔹 ADMIN METHODS 🔹 =====================
+  // ===================== ADMIN METHODS  =====================
 
   /// ADMIN: fetch all routes (no filters)
   Future<List<RouteModel>> adminFetchAllRoutes({int? limit}) async {
@@ -140,7 +140,7 @@ class RoutesController {
       await _client
           .from('routes')
           .update({'name': name, 'description': description})
-          .eq('route_id', routeId); // 👈 matches your DB column
+          .eq('route_id', routeId); //  matches the DB column
 
       return null;
     } catch (e, st) {
@@ -153,7 +153,7 @@ class RoutesController {
   /// ADMIN: delete a route by route_id
   Future<String?> adminDeleteRoute(int routeId) async {
     try {
-      await _client.from('routes').delete().eq('route_id', routeId); // 👈
+      await _client.from('routes').delete().eq('route_id', routeId);
       return null;
     } catch (e, st) {
       debugPrint('adminDeleteRoute error: $e');

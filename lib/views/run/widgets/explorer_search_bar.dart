@@ -25,9 +25,6 @@ class ExplorerSearchBar extends StatelessWidget {
           ? null
           : IconButton(icon: const Icon(Icons.clear), onPressed: onClear),
       onSubmitted: onSubmitted,
-      // NOTE: CustomTextField doesn't expose onChanged directly in your version;
-      // if yours doesn’t, wrap with Listener. If it does, pass onChanged here:
-      // onChanged: onChanged,
     );
   }
 }

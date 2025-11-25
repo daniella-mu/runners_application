@@ -7,7 +7,6 @@ import 'views/auth/login_screen.dart';
 import 'views/auth/register_screen.dart';
 import 'views/auth/forgot_password_screen.dart';
 import 'views/run/routes_explorer_screen.dart';
-// import 'views/home/route_detail_screen.dart';
 import 'views/run/run_history_screen.dart';
 import 'views/feedback/feedback_routes_screen.dart';
 import '/views/incident/incident_routes_screen.dart';
