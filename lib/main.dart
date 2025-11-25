@@ -10,6 +10,8 @@ import 'views/run/routes_explorer_screen.dart';
 // import 'views/home/route_detail_screen.dart';
 import 'views/run/run_history_screen.dart';
 import 'views/feedback/feedback_routes_screen.dart';
+import '/views/incident/incident_routes_screen.dart';
+import '/views/admin/admin_home_screen.dart';
 
 void main() async {
   // Make sure Flutter is ready
@@ -43,10 +45,11 @@ class MyApp extends StatelessWidget {
         '/forgot-password': (context) => const ForgotPasswordScreen(),
         '/home': (context) => const HomeScreen(),
         '/routes-explorer': (context) => const RoutesExplorerScreen(),
-        // '/route-details': (context) => const RouteDetailScreen(),
         '/profile': (context) => const ProfileScreen(),
         '/run-history': (context) => const RunHistoryScreen(),
         '/feedback-routes': (context) => const FeedbackRoutesScreen(),
+        '/incident-routes': (context) => const IncidentRoutesScreen(),
+        '/admin': (context) => const AdminHomeScreen(),
       },
     );
   }
