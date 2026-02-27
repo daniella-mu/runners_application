@@ -20,7 +20,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _loading = false;
   bool _obscure = true;
 
-  String? _errorMessage; // <-- inline error (no SnackBar)
+  String? _errorMessage; // Friendly inline error
 
   String? _validateEmail(String? v) {
     final value = v?.trim() ?? '';
@@ -39,37 +39,41 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _login() async {
     FocusScope.of(context).unfocus();
-    setState(() => _errorMessage = null); // clear previous error
+    setState(() => _errorMessage = null); // Clear previous error
 
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _loading = true);
+
     try {
-      final ok = await _authController.login(
+      final result = await _authController.login(
         _emailController.text.trim(),
         _passwordController.text.trim(),
       );
 
       if (!mounted) return;
 
-      if (ok == true) {
+      if (result == true) {
+        // Successful login → Home screen
         Navigator.pushReplacementNamed(context, '/home');
       } else {
-        // Show a friendly inline message
-        final msg = (ok is String && ok.isNotEmpty)
-            ? ok
+        // Show friendly message returned from AuthController
+        final msg = (result is String && result.isNotEmpty)
+            ? result
             : 'Invalid email or password. Please try again.';
         setState(() => _errorMessage = msg);
       }
     } catch (e) {
       if (!mounted) return;
-      setState(() => _errorMessage = 'Unexpected error: $e');
+      // Generic safe message — do NOT expose raw error
+      setState(() => _errorMessage = 'Something went wrong. Please try again.');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
   void _goToRegister() => Navigator.pushReplacementNamed(context, '/register');
+
   void _goToForgot() => Navigator.pushNamed(context, '/forgot-password');
 
   @override
@@ -108,12 +112,13 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 24),
 
-                  // --- Form ---
+                  // --- FORM ---
                   Form(
                     key: _formKey,
                     autovalidateMode: AutovalidateMode.onUserInteraction,
                     child: Column(
                       children: [
+                        // Email
                         CustomTextField(
                           controller: _emailController,
                           hint: 'Email',
@@ -123,6 +128,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         const SizedBox(height: 20),
 
+                        // Password
                         CustomTextField(
                           controller: _passwordController,
                           hint: 'Password',
@@ -146,7 +152,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         const SizedBox(height: 20),
 
-                        // Login button
+                        // Login Button
                         SizedBox(
                           width: double.infinity,
                           child: CustomButton(
@@ -157,7 +163,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
 
-                        // Inline error message (no SnackBar)
+                        // Inline Error
                         if (_errorMessage != null)
                           Padding(
                             padding: const EdgeInsets.only(top: 12.0),
@@ -194,7 +200,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                         const SizedBox(height: 16),
 
-                        // Register button
+                        // Register Button
                         SizedBox(
                           width: double.infinity,
                           child: OutlinedButton(
@@ -222,7 +228,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                   const SizedBox(height: 8),
 
-                  // Forgot Password (below Register)
+                  // Forgot Password
                   TextButton(
                     onPressed: _loading ? null : _goToForgot,
                     child: const Text('Forgot Password?'),

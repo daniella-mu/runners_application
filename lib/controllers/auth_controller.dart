@@ -1,15 +1,29 @@
+import 'dart:io';
+import 'package:http/http.dart' show ClientException;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
 
 class AuthController {
   final SupabaseClient _client = Supabase.instance.client;
 
+  static const String _offlineMsg =
+      "No internet connection. Please connect and try again.";
+
+  bool _looksLikeOffline(String message) {
+    final m = message.toLowerCase();
+    return m.contains('clientexception') ||
+        m.contains('socketexception') ||
+        m.contains('failed host lookup') ||
+        m.contains('no address associated with hostname') ||
+        m.contains('connection failed') ||
+        m.contains('network is unreachable');
+  }
+
   /// --------------------------------------------------------
   /// LOGIN — includes is_active account check (IMPORTANT)
   /// --------------------------------------------------------
   Future<dynamic> login(String email, String password) async {
     try {
-      // 1) Attempt login with Supabase
       final res = await _client.auth.signInWithPassword(
         email: email,
         password: password,
@@ -17,12 +31,10 @@ class AuthController {
 
       final user = res.user;
 
-      // If no user, invalid email/password
       if (user == null) {
         return "Incorrect email or password.";
       }
 
-      // 2) Fetch user profile to check is_active
       final profile = await _client
           .from('profiles')
           .select('is_active')
@@ -36,23 +48,27 @@ class AuthController {
 
       final isActive = (profile['is_active'] as bool?) ?? true;
 
-      // 3) Block login if account is inactive
       if (!isActive) {
         debugPrint("❌ Login blocked — inactive account ${user.id}");
-
-        // Must logout because Supabase still signs them in temporarily
         await _client.auth.signOut();
-
         return "Your account has been deactivated. Please contact the admin.";
       }
 
-      // 4) Login is successful
       debugPrint("✅ Login successful: ${user.id}");
       return true;
+    } on SocketException {
+      return _offlineMsg;
+    } on ClientException {
+      return _offlineMsg;
     } on AuthException catch (e) {
+      // IMPORTANT: Supabase sometimes wraps offline errors inside AuthException.message
+      if (_looksLikeOffline(e.message)) return _offlineMsg;
       return e.message;
     } catch (e) {
-      return "Unexpected error: $e";
+      debugPrint("Login unexpected error: $e");
+      // If the exception text looks like offline, show offline msg
+      if (_looksLikeOffline(e.toString())) return _offlineMsg;
+      return "Something went wrong. Please try again.";
     }
   }
 
@@ -66,25 +82,30 @@ class AuthController {
   ) async {
     try {
       final res = await _client.auth.signUp(email: email, password: password);
-
       final user = res.user;
+
       if (user != null) {
-        // Insert profile with fallback
         final response = await _client.from('profiles').upsert({
           'id': user.id,
           'full_name': fullName.isNotEmpty ? fullName : email,
         }).select();
 
         debugPrint("Profile upsert: $response");
-        debugPrint("✅ Registration complete");
         return true;
       }
 
       return "Registration failed. Please try again.";
+    } on SocketException {
+      return _offlineMsg;
+    } on ClientException {
+      return _offlineMsg;
     } on AuthException catch (e) {
+      if (_looksLikeOffline(e.message)) return _offlineMsg;
       return e.message;
     } catch (e) {
-      return "Unexpected error: $e";
+      debugPrint("Register unexpected error: $e");
+      if (_looksLikeOffline(e.toString())) return _offlineMsg;
+      return "Something went wrong. Please try again.";
     }
   }
 
@@ -94,12 +115,18 @@ class AuthController {
   Future<dynamic> forgotPassword(String email) async {
     try {
       await _client.auth.resetPasswordForEmail(email);
-      debugPrint("📧 Reset email sent to $email");
       return true;
+    } on SocketException {
+      return _offlineMsg;
+    } on ClientException {
+      return _offlineMsg;
     } on AuthException catch (e) {
+      if (_looksLikeOffline(e.message)) return _offlineMsg;
       return e.message;
     } catch (e) {
-      return "Unexpected error: $e";
+      debugPrint("Forgot password unexpected error: $e");
+      if (_looksLikeOffline(e.toString())) return _offlineMsg;
+      return "Something went wrong. Please try again.";
     }
   }
 
@@ -112,15 +139,19 @@ class AuthController {
         UserAttributes(password: newPassword),
       );
 
-      if (res.user != null) {
-        debugPrint("🔐 Password updated successfully.");
-        return true;
-      }
+      if (res.user != null) return true;
       return "Failed to update password.";
+    } on SocketException {
+      return _offlineMsg;
+    } on ClientException {
+      return _offlineMsg;
     } on AuthException catch (e) {
+      if (_looksLikeOffline(e.message)) return _offlineMsg;
       return e.message;
     } catch (e) {
-      return "Unexpected error: $e";
+      debugPrint("Update password unexpected error: $e");
+      if (_looksLikeOffline(e.toString())) return _offlineMsg;
+      return "Something went wrong. Please try again.";
     }
   }
 
@@ -137,9 +168,8 @@ class AuthController {
   }
 
   /// --------------------------------------------------------
-  /// UTILS — Get current user / session
+  /// UTILS
   /// --------------------------------------------------------
   User? getCurrentUser() => _client.auth.currentUser;
-
   Session? getCurrentSession() => _client.auth.currentSession;
 }
